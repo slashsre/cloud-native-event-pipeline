@@ -9,6 +9,11 @@
 k8s/manifests/server-app-1.0.0/ingestion-api-key.secret.yaml
 k8s/manifests/server-app-1.0.0/secret-tls.yaml
 
+# Local Roadmap / Notes
+TODO.md
+TODO*
+todo.md
+
 # Terraform
 **/.terraform/
 *.tfstate
