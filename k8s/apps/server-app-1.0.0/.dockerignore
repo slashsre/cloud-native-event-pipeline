@@ -1,0 +1,4 @@
+# Reference-only snapshot of the pre-ingestion server; not part of the image.
+server.original.py
+__pycache__/
+*.pyc

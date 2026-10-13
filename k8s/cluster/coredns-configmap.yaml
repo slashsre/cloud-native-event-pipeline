@@ -1,0 +1,42 @@
+# CoreDNS ConfigMap with rewrite rules for the server's alternative names.
+#
+# Purpose: the client must reach the server by its 3 names using DNS resolution
+# (not /etc/hosts). "server" resolves natively via the Kubernetes Service; the
+# rewrite rules below map "server.example.com" and "server.local" to the Service
+# FQDN, so they resolve to the current ClusterIP without hardcoding any IP.
+#
+# Apply:
+#   kubectl -n kube-system apply -f cluster/coredns-configmap.yaml
+#   kubectl -n kube-system rollout restart deployment coredns
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health {
+           lameduck 5s
+        }
+        ready
+        rewrite name server.example.com server.event-pipeline.svc.cluster.local
+        rewrite name server.local server.event-pipeline.svc.cluster.local
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+           pods insecure
+           fallthrough in-addr.arpa ip6.arpa
+           ttl 30
+        }
+        prometheus :9153
+        forward . /etc/resolv.conf {
+           max_concurrent 1000
+        }
+        cache 30 {
+           disable success cluster.local
+           disable denial cluster.local
+        }
+        loop
+        reload
+        loadbalance
+    }

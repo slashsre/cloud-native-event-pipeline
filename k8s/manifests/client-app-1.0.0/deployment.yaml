@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: event-pipeline
+  labels:
+    app: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: client
+        image: localhost:5000/client-app:1.0.0
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        env:
+        - name: SERVER_ADDRESSES
+          value: "server,server.example.com,server.local"
+        - name: SERVER_PORT
+          value: "5001"
+        - name: REQUEST_INTERVAL
+          value: "5"
+        - name: CERT_PATH
+          value: "/app/certs/server.crt"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 128Mi
+        volumeMounts:
+        - name: certs-volume
+          mountPath: /app/certs
+          readOnly: true
+      volumes:
+      - name: certs-volume
+        secret:
+          secretName: client-secret
+          items:
+          - key: server.crt
+            path: server.crt

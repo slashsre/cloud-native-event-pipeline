@@ -1,0 +1,28 @@
+# TLS termina aquí; la petición se reenvía al path de invocación de API Gateway
+# en Floci por la red interna de compose. ${REST_API_ID} lo sustituye el
+# entrypoint envsubst de la imagen oficial de nginx al arrancar (desde la
+# variable de entorno REST_API_ID), así un rebuild que cambie el id no obliga a
+# editar este fichero a mano.
+#
+# NOTA: las variables propias de nginx ($host, $remote_addr, ...) se conservan:
+# la imagen oficial solo sustituye variables que existan en el entorno.
+
+server {
+    listen 443 ssl;
+    server_name localhost;
+
+    ssl_certificate     /etc/nginx/certs/server.pem;
+    ssl_certificate_key /etc/nginx/certs/server-key.pem;
+
+    # Contrato limpio: el cliente hace POST a https://localhost/events y el path
+    # dinámico de Floci queda oculto tras el proxy.
+    location = /events {
+        proxy_pass http://floci:4566/restapis/${REST_API_ID}/local/_user_request_/events;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        # x-api-key y Content-Type se reenvían sin tocar; la auth la mantiene el
+        # cliente (el proxy nunca inyecta la key).
+    }
+}

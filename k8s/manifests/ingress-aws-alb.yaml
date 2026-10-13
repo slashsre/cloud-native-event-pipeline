@@ -1,0 +1,46 @@
+# Ejemplo de como enganchar el Ingress NGINX ya creado (que sigue
+# haciendo el enrutamiento por Host: server/server.example.com/server.local)
+# detras de un AWS ALB Ingress Controller ya existente en el cluster.
+#
+# Arquitectura: Internet -> ALB (TLS/ACM) -> Service ingress-nginx-controller
+# (NodePort/IP) -> ingress-nginx (enruta por Host) -> Service 'server'
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: server-alb-frontend
+  namespace: event-pipeline
+  labels:
+    app: server
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: event-pipeline
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/backend-protocol: HTTPS
+    # Replace por el ARN real del certificado ACM del dominio publico
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-west-1:123456789012:certificate/example-cert-id
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+spec:
+  ingressClassName: alb
+  rules:
+    - host: server.example.com
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            # El backend del ALB es el Service del Ingress NGINX, no la app
+            # directamente: NGINX sigue resolviendo internamente los 3 hosts.
+            service:
+              name: ingress-nginx-controller
+              port:
+                number: 443
+

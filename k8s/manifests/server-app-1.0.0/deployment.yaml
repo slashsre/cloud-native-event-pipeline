@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  namespace: event-pipeline
+  labels:
+    app: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      labels:
+        app: server
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: server
+        image: localhost:5000/server-app:1.0.0
+        imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        ports:
+        - containerPort: 5001
+        env:
+        - name: SERVER_PORT
+          value: "5001"
+        - name: CERT_PATH
+          value: "/app/certs/server.crt"
+        - name: KEY_PATH
+          value: "/app/certs/server.key"
+        # --- Ingestion pipeline wiring (AWS Event Ingestion Pipeline) ---
+        - name: INGEST_ENABLED
+          value: "true"
+        - name: INGEST_URL
+          value: "https://host.docker.internal:8443/events"
+        - name: INGEST_CA_PATH          # validate the endpoint's TLS, never -k
+          value: "/app/ingest-ca/ca.pem"
+        - name: INGEST_API_KEY          # sourced from Secrets Manager -> k8s Secret
+          valueFrom:
+            secretKeyRef:
+              name: ingestion-api-key
+              key: api-key
+              optional: true            # pod starts even if AWS isn't up yet
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        volumeMounts:
+        - name: certs-volume
+          mountPath: /app/certs
+          readOnly: true
+        - name: ingest-ca
+          mountPath: /app/ingest-ca
+          readOnly: true
+      # host.docker.internal is in the kind node's /etc/hosts but pods use
+      # CoreDNS and don't inherit it; pin it so the pod can reach the host.
+      hostAliases:
+      - ip: "192.168.65.254"          # Docker Desktop host gateway
+        hostnames:
+        - "host.docker.internal"
+      volumes:
+      - name: certs-volume
+        secret:
+          secretName: server-tls-secret
+          items:
+          - key: tls.crt
+            path: server.crt
+          - key: tls.key
+            path: server.key
+      - name: ingest-ca
+        secret:
+          secretName: ingestion-ca
+          optional: true               # pod starts even if AWS isn't up yet
+          items:
+          - key: ca.pem
+            path: ca.pem

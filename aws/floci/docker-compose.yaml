@@ -1,0 +1,29 @@
+services:
+  floci:
+    image: floci/floci:2.0.1
+    ports:
+      - "4566:4566"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+    environment:
+      FLOCI_STORAGE_MODE: hybrid
+
+  # Reverse proxy que termina TLS delante de Floci. El cliente llama a
+  # https://localhost/events con un cert de confianza (sin -k); nginx reenvía a
+  # la API Gateway de Floci por la red interna (floci:4566).
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - floci
+    ports:
+      # 443 en el host lo ocupa el cluster kind del reto de Kubernetes, así que
+      # publicamos en 8443 -> cliente: https://localhost:8443/events
+      - "8443:443"
+    environment:
+      # Id de la REST API que genera Terraform; se inyecta en la plantilla.
+      # Default vacío para no avisar cuando se levanta solo floci.
+      REST_API_ID: ${REST_API_ID:-}
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ../certs/nginx:/etc/nginx/certs:ro

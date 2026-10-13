@@ -1,0 +1,44 @@
+# Environment & Secrets
+.env
+*.env
+*.local
+*.pem
+*.key
+
+# Sensitive Kubernetes Secrets generated at runtime (contain private keys or API credentials)
+k8s/manifests/server-app-1.0.0/ingestion-api-key.secret.yaml
+k8s/manifests/server-app-1.0.0/secret-tls.yaml
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Local AWS / Floci Runtime Data
+aws/floci/data/
+aws/floci/.env
+/data/
+.build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+env/
+venv/
+ENV/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Logs
+*.log
